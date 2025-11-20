@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Face Light</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    :root {
+      --hue: 40;        /* 0–360 */
+      /* Safari (older versions) requires units to be part of the custom property
+         when used inside hsl(), so include % here for saturation/lightness. */
+      --saturation: 80%; /* 0–100% */
+      --lightness: 60%;  /* 0–100% */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      /* --saturation and --lightness include the % unit now, so don't append % here */
+      background-color: hsl(var(--hue), var(--saturation), var(--lightness));
+      transition: background-color 0.12s linear;
+    }
+
+    /* Toggle button */
+
+    #control-toggle {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 999px;
+      border: none;
+      background: rgba(0, 0, 0, 0.35);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 20;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    }
+
+    /* Button icon sizing and centering (use SVGs for crisp rendering) */
+    #control-toggle .icon {
+      width: 1.25rem;
+      height: 1.25rem;
+      display: block;
+      color: #fff;
+    }
+
+    /* Show gear by default, show close when button has .open */
+    #control-toggle .icon-close {
+      display: none;
+    }
+
+    #control-toggle.open .icon-gear {
+      display: none;
+    }
+
+    #control-toggle.open .icon-close {
+      display: block;
+    }
+
+    #control-toggle:hover {
+      background: rgba(0, 0, 0, 0.5);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+    }
+
+    #control-toggle:active {
+      transform: translateY(0);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+    }
+
+    /* Control panel */
+
+    #control-panel {
+      position: fixed;
+      top: 3.75rem;
+      right: 0.75rem;
+      width: min(320px, 90vw);
+      padding: 0.9rem 1rem;
+      border-radius: 0.75rem;
+      background: rgba(0, 0, 0, 0.7);
+      color: #f5f5f5;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      z-index: 10;
+      font-size: 0.85rem;
+      display: none; /* toggled via JS */
+    }
+
+    #control-panel.open {
+      display: block;
+    }
+
+    #control-panel h1 {
+      font-size: 0.95rem;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .control-group {
+      margin-bottom: 0.55rem;
+    }
+
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.15rem;
+    }
+
+    .control-label-row label {
+      font-size: 0.8rem;
+      opacity: 0.9;
+    }
+
+    .control-label-row .value {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.25);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.25);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.18);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.25);
+      cursor: pointer;
+    }
+
+    .preset-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.4rem;
+      margin-top: 0.35rem;
+    }
+
+    .preset-button {
+      flex: 1;
+      border: none;
+      border-radius: 999px;
+      padding: 0.35rem 0.4rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.08);
+      color: #f5f5f5;
+      text-align: center;
+      white-space: nowrap;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+
+    .preset-button:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .preset-button:active {
+      transform: translateY(1px);
+    }
+
+    .preset-button[data-preset="warm"] {
+      /* purely cosmetic; actual color comes from JS */
+    }
+
+    .preset-button[data-preset="neutral"] {
+      /* intentionally left blank for future styling */
+    }
+
+    .preset-button[data-preset="cool"] {
+      /* intentionally left blank for future styling */
+      /* keep rule non-empty for linting */
+      box-shadow: none;
+    }
+
+    .footer-note {
+      margin-top: 0.4rem;
+      font-size: 0.7rem;
+      opacity: 0.7;
+      text-align: right;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body,
+      #control-toggle,
+      .preset-button {
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Toggle button -->
+  <button id="control-toggle" aria-label="Open light controls" aria-expanded="false">
+    <!-- Inline SVGs: pencil (default) and close. Visibility toggled via CSS when the button has the .open class. -->
+    <svg class="icon icon-gear" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" />
+    </svg>
+    <svg class="icon icon-close" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M18.3 5.71a1 1 0 00-1.41 0L12 10.59 7.11 5.7A1 1 0 105.7 7.11L10.59 12l-4.89 4.89a1 1 0 101.41 1.41L12 13.41l4.89 4.89a1 1 0 001.41-1.41L13.41 12l4.89-4.89a1 1 0 000-1.4z" />
+    </svg>
+  </button>
+
+  <!-- Control panel -->
+  <aside id="control-panel" aria-label="Light controls">
+    <h1>Face Light</h1>
+
+    <div class="control-group">
+      <div class="control-label-row">
+        <label for="hue">Hue</label>
+        <span class="value" id="hue-value">40°</span>
+      </div>
+      <input id="hue" type="range" min="0" max="360" value="40" />
+    </div>
+
+    <div class="control-group">
+      <div class="control-label-row">
+        <label for="saturation">Saturation</label>
+        <span class="value" id="saturation-value">80%</span>
+      </div>
+      <input id="saturation" type="range" min="0" max="100" value="80" />
+    </div>
+
+    <div class="control-group">
+      <div class="control-label-row">
+        <label for="lightness">Brightness</label>
+        <span class="value" id="lightness-value">60%</span>
+      </div>
+      <input id="lightness" type="range" min="0" max="100" value="60" />
+    </div>
+
+    <div class="control-group">
+      <div class="control-label-row">
+        <label>Presets</label>
+      </div>
+      <div class="preset-row">
+        <button class="preset-button" data-preset="warm">Warm</button>
+        <button class="preset-button" data-preset="neutral">Neutral</button>
+        <button class="preset-button" data-preset="cool">Cool</button>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Click the pencil to hide this panel.
+    </div>
+  </aside>
+
+  <script>
+    (function () {
+      const root = document.documentElement;
+      const panel = document.getElementById('control-panel');
+      const toggleButton = document.getElementById('control-toggle');
+
+      const hueInput = document.getElementById('hue');
+      const satInput = document.getElementById('saturation');
+      const lightInput = document.getElementById('lightness');
+
+      const hueValueLabel = document.getElementById('hue-value');
+      const satValueLabel = document.getElementById('saturation-value');
+      const lightValueLabel = document.getElementById('lightness-value');
+
+      const STORAGE_KEY = 'face-light-hsl';
+
+      function applyHSL(h, s, l) {
+        root.style.setProperty('--hue', String(h));
+        // Append '%' so the CSS custom properties include units (Safari compatibility)
+        root.style.setProperty('--saturation', String(s) + '%');
+        root.style.setProperty('--lightness', String(l) + '%');
+
+        hueInput.value = h;
+        satInput.value = s;
+        lightInput.value = l;
+
+        hueValueLabel.textContent = h + '°';
+        satValueLabel.textContent = s + '%';
+        lightValueLabel.textContent = l + '%';
+
+        try {
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({ hue: h, saturation: s, lightness: l })
+          );
+        } catch (e) {
+          // Ignore storage errors
+        }
+      }
+
+      function loadFromStorage() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          if (
+            typeof parsed.hue === 'number' &&
+            typeof parsed.saturation === 'number' &&
+            typeof parsed.lightness === 'number'
+          ) {
+            applyHSL(parsed.hue, parsed.saturation, parsed.lightness);
+          }
+        } catch (e) {
+          // Ignore malformed data
+        }
+      }
+
+      function handleRangeChange() {
+        const h = Number(hueInput.value);
+        const s = Number(satInput.value);
+        const l = Number(lightInput.value);
+        applyHSL(h, s, l);
+      }
+
+      function togglePanel() {
+        panel.classList.toggle('open');
+        // Mirror state on the toggle button for CSS-driven icon swap
+        toggleButton.classList.toggle('open');
+        // Keep aria-expanded in sync for assistive tech
+        const expanded = panel.classList.contains('open');
+        toggleButton.setAttribute('aria-expanded', String(expanded));
+        updateToggleIcon(expanded);
+      }
+
+      function updateToggleIcon(expanded) {
+        // Only update aria-label here; the icon swap is handled by toggling
+        // the `.open` class on the button so CSS can show/hide the SVGs.
+        if (expanded) {
+          toggleButton.setAttribute('aria-label', 'Close light controls');
+        } else {
+          toggleButton.setAttribute('aria-label', 'Open light controls');
+        }
+      }
+
+      function handlePresetClick(event) {
+        const btn = event.currentTarget;
+        const preset = btn.getAttribute('data-preset');
+        if (!preset) return;
+
+        // You can tweak these presets as you like.
+        if (preset === 'warm') {
+          applyHSL(35, 80, 65); // warm amber
+        } else if (preset === 'neutral') {
+          applyHSL(45, 40, 70); // soft neutral
+        } else if (preset === 'cool') {
+          applyHSL(210, 60, 70); // cool blue
+        }
+      }
+
+      // Event wiring
+      toggleButton.addEventListener('click', togglePanel);
+
+      // Listen for both input and change to cover different interaction types
+      ['input', 'change'].forEach(function (ev) {
+        hueInput.addEventListener(ev, handleRangeChange);
+        satInput.addEventListener(ev, handleRangeChange);
+        lightInput.addEventListener(ev, handleRangeChange);
+      });
+
+      document
+        .querySelectorAll('.preset-button')
+        .forEach(function (btn) {
+          btn.addEventListener('click', handlePresetClick);
+        });
+
+  // Initial load and ensure CSS variables match the inputs immediately.
+  loadFromStorage();
+  // If nothing was in storage, or to guarantee sync, apply current input values.
+  applyHSL(Number(hueInput.value), Number(satInput.value), Number(lightInput.value));
+
+  // Close helpers: allow clicking outside the panel or pressing Escape to close it.
+  function closePanel() {
+    if (!panel.classList.contains('open')) return;
+    panel.classList.remove('open');
+    toggleButton.classList.remove('open');
+    toggleButton.setAttribute('aria-expanded', 'false');
+    updateToggleIcon(false);
+  }
+
+  // Clicking anywhere outside the panel (and outside the toggle button) closes it.
+  document.addEventListener('click', function (ev) {
+    if (!panel.classList.contains('open')) return;
+    const target = ev.target;
+    if (!panel.contains(target) && !toggleButton.contains(target)) {
+      closePanel();
+    }
+  });
+
+  // Pressing Escape closes the panel for keyboard users.
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && panel.classList.contains('open')) {
+      closePanel();
+    }
+  });
+    })();
+  </script>
+</body>
+</html>
