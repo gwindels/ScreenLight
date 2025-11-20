@@ -95,7 +95,7 @@
       top: 3.75rem;
       right: 0.75rem;
       width: min(320px, 90vw);
-      padding: 0.9rem 1rem;
+      padding: 1.5rem 1.5rem 1.2rem;
       border-radius: 0.75rem;
       background: rgba(0, 0, 0, 0.7);
       color: #f5f5f5;
@@ -111,16 +111,10 @@
       display: block;
     }
 
-    #control-panel h1 {
-      font-size: 0.95rem;
-      margin-bottom: 0.5rem;
-      font-weight: 600;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-      opacity: 0.9;
-    }
-
     .control-group {
+      margin-bottom: 1.75rem;
+    }
+    .control-group:last-child {
       margin-bottom: 0.55rem;
     }
 
@@ -128,7 +122,7 @@
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      margin-bottom: 0.15rem;
+      margin-bottom: 0.75rem;
     }
 
     .control-label-row label {
@@ -240,8 +234,6 @@
 
   <!-- Control panel -->
   <aside id="control-panel" aria-label="Light controls">
-    <h1>Face Light</h1>
-
     <div class="control-group">
       <div class="control-label-row">
         <label for="hue">Hue</label>
