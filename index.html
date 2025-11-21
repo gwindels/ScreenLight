@@ -25,6 +25,7 @@
       height: 100%;
       overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-weight: 200;
     }
 
     body {
@@ -37,10 +38,10 @@
 
     #control-toggle {
       position: fixed;
-      top: 0.75rem;
-      right: 0.75rem;
-      width: 2.5rem;
-      height: 2.5rem;
+      top: 1rem;
+      right: 1rem;
+      width: 3rem;
+      height: 3rem;
       border-radius: 999px;
       border: none;
       background: rgba(0, 0, 0, 0.35);
@@ -58,8 +59,8 @@
 
     /* Button icon sizing and centering (use SVGs for crisp rendering) */
     #control-toggle .icon {
-      width: 1.25rem;
-      height: 1.25rem;
+      width: 1.5rem;
+      height: 1.5rem;
       display: block;
       color: #fff;
     }
@@ -90,10 +91,15 @@
 
     /* Control panel */
 
+    /*
+      The panel is animated using transform (scale) + opacity. We avoid
+      display:none so the element can be animated. The transform-origin is
+      the upper-right corner so it grows out of the toggle button area.
+    */
     #control-panel {
       position: fixed;
-      top: 3.75rem;
-      right: 0.75rem;
+      top: 4.5rem;
+      right: 1rem;
       width: min(320px, 90vw);
       padding: 1.5rem 1.5rem 1.2rem;
       border-radius: 0.75rem;
@@ -103,16 +109,50 @@
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       z-index: 10;
-      font-size: 0.85rem;
-      display: none; /* toggled via JS */
+      font-size: 1.2rem;
+      /* Start hidden but present for animation */
+      transform-origin: top right;
+      transform: scale(0.86);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      will-change: transform, opacity;
+      /* closing transition when removing .open - use a non-overshooting easing */
+      transition: transform 200ms cubic-bezier(0.2, 0, 0, 1),
+          opacity 160ms linear, visibility 0ms linear 200ms;
     }
 
+    /* Keyframes: small pop with slight overshoot for a gentle bounce */
+    @keyframes panel-pop {
+      0% {
+        transform: scale(0.7);
+        opacity: 0;
+      }
+      60% {
+        transform: scale(1.04);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* When open, make visible and run pop animation. We remove the
+       delayed visibility transition so it appears immediately. */
     #control-panel.open {
-      display: block;
+      visibility: visible;
+      pointer-events: auto;
+      /* Use animation for open so we get the bounce */
+      animation: panel-pop 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      /* ensure the final state is exactly scale(1) after animation */
+      transform: scale(1);
+      opacity: 1;
+      transition: none;
     }
 
     .control-group {
-      margin-bottom: 1.75rem;
+      margin-bottom: 1.75em;
     }
     .control-group:last-child {
       margin-bottom: 0.55rem;
@@ -122,16 +162,16 @@
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5em;
     }
 
     .control-label-row label {
-      font-size: 0.8rem;
+      font-size: 1.1rem;
       opacity: 0.9;
     }
 
     .control-label-row .value {
-      font-size: 0.75rem;
+      font-size: 0.9rem;
       opacity: 0.8;
       font-variant-numeric: tabular-nums;
     }
@@ -150,8 +190,8 @@
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 16px;
-      height: 16px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       background: #fff;
       border: 1px solid rgba(0,0,0,0.25);
@@ -172,7 +212,7 @@
       display: flex;
       justify-content: space-between;
       gap: 0.4rem;
-      margin-top: 0.35rem;
+      margin-top: .8em;
     }
 
     .preset-button {
@@ -180,7 +220,7 @@
       border: none;
       border-radius: 999px;
       padding: 0.35rem 0.4rem;
-      font-size: 0.75rem;
+      font-size: 0.9rem;
       cursor: pointer;
       background: rgba(255, 255, 255, 0.08);
       color: #f5f5f5;
@@ -311,20 +351,26 @@
       }
 
       function loadFromStorage() {
+        // Return true if storage provided valid values and they were applied.
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          if (!raw) return;
+          if (!raw) return false;
           const parsed = JSON.parse(raw);
-          if (
-            typeof parsed.hue === 'number' &&
-            typeof parsed.saturation === 'number' &&
-            typeof parsed.lightness === 'number'
-          ) {
-            applyHSL(parsed.hue, parsed.saturation, parsed.lightness);
+
+          // Coerce values to numbers for robustness (may be strings in some cases)
+          const h = Number(parsed.hue);
+          const s = Number(parsed.saturation);
+          const l = Number(parsed.lightness);
+
+          if (Number.isFinite(h) && Number.isFinite(s) && Number.isFinite(l)) {
+            applyHSL(h, s, l);
+            return true;
           }
         } catch (e) {
           // Ignore malformed data
         }
+
+        return false;
       }
 
       function handleRangeChange() {
@@ -385,10 +431,34 @@
           btn.addEventListener('click', handlePresetClick);
         });
 
-  // Initial load and ensure CSS variables match the inputs immediately.
-  loadFromStorage();
-  // If nothing was in storage, or to guarantee sync, apply current input values.
-  applyHSL(Number(hueInput.value), Number(satInput.value), Number(lightInput.value));
+  // Initial load: prefer stored values if present, otherwise apply the
+  // current input defaults and persist them.
+  const hadStored = loadFromStorage();
+  if (!hadStored) {
+    applyHSL(Number(hueInput.value), Number(satInput.value), Number(lightInput.value));
+  }
+
+  // Open the control panel on initial page load by default. Use a small
+  // delay so the open animation (panel-pop) can run; if the user prefers
+  // reduced motion, open immediately without the animation.
+  (function openPanelOnLoad() {
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      panel.classList.add('open');
+      toggleButton.classList.add('open');
+      toggleButton.setAttribute('aria-expanded', 'true');
+      updateToggleIcon(true);
+      return;
+    }
+
+    // small delay to ensure initial paint has occurred so the pop animation is visible
+    setTimeout(function () {
+      panel.classList.add('open');
+      toggleButton.classList.add('open');
+      toggleButton.setAttribute('aria-expanded', 'true');
+      updateToggleIcon(true);
+    }, 300);
+  })();
 
   // Close helpers: allow clicking outside the panel or pressing Escape to close it.
   function closePanel() {
